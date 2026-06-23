@@ -13,6 +13,8 @@ public class ProcessedNode
     public List<AlertData> alerts;
     public string dominantAlertType;
     public HashSet<string> neighbours;
+    public Dictionary<string, EdgeData> peerEdges;
+    public ProtocolCounts protocols;
 }
 
 public class GraphDataLoader : MonoBehaviour
@@ -106,6 +108,19 @@ public class GraphDataLoader : MonoBehaviour
             neighbourMap[edge.dst].Add(edge.src);
         }
 
+        // Build per-node peer edge lookup
+        Dictionary<string, Dictionary<string, EdgeData>> peerEdgeMap =
+            new Dictionary<string, Dictionary<string, EdgeData>>();
+        foreach (EdgeData edge in topology.edges)
+        {
+            if (!peerEdgeMap.ContainsKey(edge.src))
+                peerEdgeMap[edge.src] = new Dictionary<string, EdgeData>();
+            if (!peerEdgeMap.ContainsKey(edge.dst))
+                peerEdgeMap[edge.dst] = new Dictionary<string, EdgeData>();
+            peerEdgeMap[edge.src][edge.dst] = edge;
+            peerEdgeMap[edge.dst][edge.src] = edge;
+        }
+
         // ── 3. Build ProcessedNode list ────────────────────────────────
         Nodes = new List<ProcessedNode>();
         foreach (NodeData n in topology.nodes)
@@ -124,14 +139,18 @@ public class GraphDataLoader : MonoBehaviour
                 dominantAlertType = GetDominantAlert(nodeAlerts),
                 neighbours = neighbourMap.ContainsKey(n.ip)
                                     ? neighbourMap[n.ip]
-                                    : new HashSet<string>()
+                                    : new HashSet<string>(),
+                protocols = n.protocols,
+                peerEdges = peerEdgeMap.ContainsKey(n.ip)
+                    ? peerEdgeMap[n.ip]
+                    : new Dictionary<string, EdgeData>()
             };
             Nodes.Add(pn);
         }
 
         IsLoaded = true;
         Debug.Log($"GraphDataLoader: loaded {Nodes.Count} nodes, " +
-                  $"{Edges.Count} edges, {Alerts.Count} alerts.");
+                    $"{Edges.Count} edges, {Alerts.Count} alerts.");
     }
 
     private string GetDominantAlert(List<AlertData> nodeAlerts)
