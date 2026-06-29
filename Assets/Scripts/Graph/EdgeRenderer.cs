@@ -31,6 +31,39 @@ public class EdgeRenderer : MonoBehaviour
         _line.SetPosition(1, endBase);
     }
 
+    public void SetStyle(EdgeData edge, int maxCount)
+    {
+        // ── Thickness ──────────────────────────────────────────────────
+        float normalised = maxCount > 0
+            ? Mathf.Log10(1 + edge.count) / Mathf.Log10(1 + maxCount)
+            : 0f;
+        float width = Mathf.Lerp(0.02f, 0.25f, normalised);
+        _line.startWidth = width;
+        _line.endWidth = width;
+
+        // ── Colour ─────────────────────────────────────────────────────
+        ProtocolCounts p = edge.protocols;
+        Color col;
+
+        if (p == null)
+        {
+            col = new Color(0.5f, 0.5f, 0.5f);
+        }
+        else
+        {
+            int max = Mathf.Max(p.TCP, p.UDP, p.ICMP, p.ARP, p.Other);
+            if (max == p.TCP) col = new Color(0.2f, 0.5f, 1.0f);  // blue
+            else if (max == p.UDP) col = new Color(0.2f, 0.9f, 0.3f);  // green
+            else if (max == p.ICMP) col = new Color(1.0f, 0.9f, 0.1f);  // yellow
+            else if (max == p.ARP) col = new Color(1.0f, 0.5f, 0.1f);  // orange
+            else col = new Color(0.5f, 0.5f, 0.5f);  // grey
+        }
+
+        _line.startColor = col;
+        _line.endColor = col;
+        _originalColor = col;
+    }
+
     public void SetDimmed(bool dimmed)
     {
         Color c = dimmed ? new Color(0.1f, 0.1f, 0.1f, 1f) : _originalColor;

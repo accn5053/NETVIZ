@@ -85,6 +85,10 @@ public class GraphManager : MonoBehaviour
         // Deduplicate: treat A→B and B→A as the same edge
         System.Collections.Generic.HashSet<string> drawn =
             new System.Collections.Generic.HashSet<string>();
+        int maxCount = 0;
+        foreach (EdgeData edge in dataLoader.Edges)
+            if (edge.count > maxCount)
+                maxCount = edge.count;
 
         int spawnedCount = 0;
         Edges = new List<EdgeRenderer>();
@@ -116,6 +120,7 @@ public class GraphManager : MonoBehaviour
 
             EdgeRenderer er = go.GetComponent<EdgeRenderer>();
             er.Initialise(startPos, endPos, edge.src, edge.dst);
+            er.SetStyle(edge, maxCount);
             Edges.Add(er);
             spawnedCount++;
         }
