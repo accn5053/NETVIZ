@@ -1,12 +1,25 @@
 using System.Collections.Generic;
 
 [System.Serializable]
+public class PortEntry
+{
+    public int port;
+    public int count;
+}
+
+[System.Serializable]
 public class NodeData
 {
     public string ip;
     public float x;
     public float y;
     public float activity_bytes;
+    public float outbound_bytes;
+    public float inbound_bytes;
+    public double first_seen;
+    public double last_seen;
+    public int unique_peers;
+    public List<PortEntry> top_ports;
     public ProtocolCounts protocols;
 }
 

@@ -15,6 +15,12 @@ public class ProcessedNode
     public HashSet<string> neighbours;
     public Dictionary<string, EdgeData> peerEdges;
     public ProtocolCounts protocols;
+    public float outboundBytes;
+    public float inboundBytes;
+    public double firstSeen;
+    public double lastSeen;
+    public int uniquePeers;
+    public List<PortEntry> topPorts;
 }
 
 public class GraphDataLoader : MonoBehaviour
@@ -138,12 +144,18 @@ public class GraphDataLoader : MonoBehaviour
                 alerts = nodeAlerts,
                 dominantAlertType = GetDominantAlert(nodeAlerts),
                 neighbours = neighbourMap.ContainsKey(n.ip)
-                                    ? neighbourMap[n.ip]
-                                    : new HashSet<string>(),
+                        ? neighbourMap[n.ip]
+                        : new HashSet<string>(),
                 protocols = n.protocols,
                 peerEdges = peerEdgeMap.ContainsKey(n.ip)
-                    ? peerEdgeMap[n.ip]
-                    : new Dictionary<string, EdgeData>()
+        ? peerEdgeMap[n.ip]
+        : new Dictionary<string, EdgeData>(),
+                outboundBytes = n.outbound_bytes,
+                inboundBytes = n.inbound_bytes,
+                firstSeen = n.first_seen,
+                lastSeen = n.last_seen,
+                uniquePeers = n.unique_peers,
+                topPorts = n.top_ports
             };
             Nodes.Add(pn);
         }

@@ -8,8 +8,7 @@ public class AnalystPanel : MonoBehaviour
     public GameObject panelRoot;
     public TextMeshProUGUI panelText;
     public Button closeButton;
-    public ConversationsOverlay conversationsOverlay;
-    public UnityEngine.UI.Button showAllButton;
+    // ConversationsOverlay removed
     public NodeHighlighter nodeHighlighter;
 
     void Awake()
@@ -21,8 +20,6 @@ public class AnalystPanel : MonoBehaviour
             if (nodeHighlighter != null)
                 nodeHighlighter.ResetAll();
         });
-        if (showAllButton != null)
-            showAllButton.gameObject.SetActive(false);
     }
 
     void OnEnable()
@@ -58,7 +55,7 @@ public class AnalystPanel : MonoBehaviour
         // ── Alerts ─────────────────────────────────────────────────────
         if (data.alerts == null || data.alerts.Count == 0)
         {
-            sb.AppendLine("<color=#00FF00>No alerts detected</color>");
+            sb.AppendLine("<color=#00FF00>No alerts detected</color>\n");
         }
         else
         {
@@ -70,11 +67,26 @@ public class AnalystPanel : MonoBehaviour
                 sb.AppendLine($"  Target: {alert.target}");
                 sb.AppendLine($"  {alert.details}");
             }
+            sb.AppendLine();
         }
 
         // ── Activity ───────────────────────────────────────────────────
-        sb.AppendLine("<b>Activity</b>");
-        sb.AppendLine($"  Outbound bytes: {Mathf.RoundToInt(data.activityScore)}");
+        sb.AppendLine("<b>Traffic</b>");
+        sb.AppendLine($"  Inbound:  {FormatBytes(data.inboundBytes)}");
+        sb.AppendLine($"  Outbound: {FormatBytes(data.outboundBytes)}");
+        if (data.inboundBytes > 0 && data.outboundBytes > 0)
+        {
+            float ratio = data.outboundBytes / data.inboundBytes;
+            sb.AppendLine($"  Ratio (Out/In): {ratio:F1}x");
+        }
+        sb.AppendLine();
+
+        // ── Timeline ───────────────────────────────────────────────────
+        sb.AppendLine("<b>Activity Window</b>");
+        sb.AppendLine($"  First seen: {FormatTimestamp(data.firstSeen)}");
+        sb.AppendLine($"  Last seen:  {FormatTimestamp(data.lastSeen)}");
+        double duration = data.lastSeen - data.firstSeen;
+        sb.AppendLine($"  Duration:   {FormatDuration(duration)}");
         sb.AppendLine();
 
         // ── Protocol Breakdown ─────────────────────────────────────────
@@ -91,75 +103,66 @@ public class AnalystPanel : MonoBehaviour
                 if (p.ARP > 0) sb.AppendLine($"  ARP:   {p.ARP} pkts ({Mathf.RoundToInt(p.ARP * 100f / total)}%)");
                 if (p.Other > 0) sb.AppendLine($"  Other: {p.Other} pkts ({Mathf.RoundToInt(p.Other * 100f / total)}%)");
             }
-            else
-            {
-                sb.AppendLine("  No protocol data");
-            }
+            else sb.AppendLine("  No protocol data");
         }
         sb.AppendLine();
 
-        // ── Conversations (top 5 only) ─────────────────────────────────
+        // ── Top Ports ──────────────────────────────────────────────────
+        sb.AppendLine("<b>Top Ports Contacted</b>");
+        if (data.topPorts != null && data.topPorts.Count > 0)
+        {
+            foreach (PortEntry pe in data.topPorts)
+                sb.AppendLine($"  :{pe.port} — {pe.count} pkts");
+        }
+        else sb.AppendLine("  No port data");
+        sb.AppendLine();
+
+        // ── Conversations ──────────────────────────────────────────────
         sb.AppendLine("<b>Conversations</b>");
+        sb.AppendLine($"  Unique peers: {data.uniquePeers}");
         if (data.peerEdges != null && data.peerEdges.Count > 0)
         {
             int shown = 0;
+            int total = 0;
+            foreach (var kvp in data.peerEdges)
+                total += kvp.Value.count;
+
             foreach (var kvp in data.peerEdges)
             {
                 if (shown >= 5) break;
                 string peer = kvp.Key;
                 EdgeData edge = kvp.Value;
-                ProtocolCounts ep = edge.protocols;
-
-                System.Text.StringBuilder protoSb = new System.Text.StringBuilder();
-                if (ep != null)
-                {
-                    if (ep.TCP > 0) protoSb.Append($"TCP={ep.TCP} ");
-                    if (ep.UDP > 0) protoSb.Append($"UDP={ep.UDP} ");
-                    if (ep.ICMP > 0) protoSb.Append($"ICMP={ep.ICMP} ");
-                    if (ep.ARP > 0) protoSb.Append($"ARP={ep.ARP} ");
-                    if (ep.Other > 0) protoSb.Append($"Other={ep.Other} ");
-                }
-
-                string protoStr = protoSb.Length > 0
-                    ? protoSb.ToString().TrimEnd()
-                    : "no protocol data";
-
-                sb.AppendLine($"  {peer} ({protoStr}, {edge.count} pkts total)");
+                int pct = total > 0 ? Mathf.RoundToInt(edge.count * 100f / total) : 0;
+                sb.AppendLine($"  {peer} — {edge.count} pkts ({pct}%)");
                 shown++;
             }
-
             if (data.peerEdges.Count > 5)
-            {
                 sb.AppendLine($"  ... and {data.peerEdges.Count - 5} more");
-                if (showAllButton != null)
-                {
-                    showAllButton.gameObject.SetActive(true);
-                    showAllButton.onClick.RemoveAllListeners();
-                    showAllButton.onClick.AddListener(() =>
-                    {
-                        Debug.Log("Show All clicked");
-                        if (conversationsOverlay == null)
-                            Debug.LogError("conversationsOverlay is null");
-                        else
-                            conversationsOverlay.Show(data);
-                    });
-                }
-            }
-            else
-            {
-                if (showAllButton != null)
-                    showAllButton.gameObject.SetActive(false);
-            }
         }
-        else
-        {
-            sb.AppendLine("  No conversations");
-            if (showAllButton != null)
-                showAllButton.gameObject.SetActive(false);
-        }
-        sb.AppendLine();
+        else sb.AppendLine("  No conversations");
 
         return sb.ToString();
+    }
+
+    private string FormatBytes(float bytes)
+    {
+        if (bytes >= 1_000_000) return $"{bytes / 1_000_000f:F2} MB";
+        if (bytes >= 1_000) return $"{bytes / 1_000f:F1} KB";
+        return $"{bytes:F0} B";
+    }
+
+    private string FormatTimestamp(double unixTs)
+    {
+        System.DateTime dt = new System.DateTime(1970, 1, 1, 0, 0, 0, System.DateTimeKind.Utc)
+            .AddSeconds(unixTs).ToLocalTime();
+        return dt.ToString("yyyy-MM-dd HH:mm:ss");
+    }
+
+    private string FormatDuration(double seconds)
+    {
+        if (seconds < 60) return $"{seconds:F1}s";
+        if (seconds < 3600) return $"{seconds / 60:F1}min";
+        return $"{seconds / 3600:F1}hr";
     }
 
     private string GetAlertColor(string alertType)
