@@ -21,6 +21,7 @@ public class IsometricCameraController : MonoBehaviour
     private Vector3 _lastMousePos;
     private bool _isPanning;
 
+
     void Start()
     {
         transform.rotation = Quaternion.Euler(PITCH, YAW, 0f);
@@ -48,6 +49,9 @@ public class IsometricCameraController : MonoBehaviour
     {
         if (Input.GetMouseButtonDown(0))
         {
+            PanelResizer resizer = FindAnyObjectByType<PanelResizer>();
+            if (resizer != null && resizer.IsDragging()) return;
+
             _lastMousePos = Input.mousePosition;
             _isPanning = true;
         }
@@ -56,10 +60,12 @@ public class IsometricCameraController : MonoBehaviour
 
         if (!_isPanning) return;
 
+        PanelResizer resizerCheck = FindAnyObjectByType<PanelResizer>();
+        if (resizerCheck != null && resizerCheck.IsDragging()) return;
+
         Vector3 delta = Input.mousePosition - _lastMousePos;
         _lastMousePos = Input.mousePosition;
 
-        // Convert pixel delta to world units using camera's orthographic-equivalent scale
         float unitsPerPixel = (_currentZoom * 2f) / Screen.height;
 
         Vector3 right = transform.right;
