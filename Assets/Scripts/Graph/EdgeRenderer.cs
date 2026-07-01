@@ -34,12 +34,12 @@ public class EdgeRenderer : MonoBehaviour
     public void SetStyle(EdgeData edge, int maxCount)
     {
         // ── Thickness ──────────────────────────────────────────────────
-        float normalised = maxCount > 0
-            ? Mathf.Log10(1 + edge.count) / Mathf.Log10(1 + maxCount)
-            : 0f;
-        float width = Mathf.Lerp(0.02f, 0.25f, normalised);
-        _line.startWidth = width;
-        _line.endWidth = width;
+        //float normalised = maxCount > 0
+        //    ? Mathf.Log10(1 + edge.count) / Mathf.Log10(1 + maxCount)
+        //    : 0f;
+        //float width = Mathf.Lerp(0.02f, 0.25f, normalised);
+        //_line.startWidth = width;
+        //_line.endWidth = width;
 
         // ── Colour ─────────────────────────────────────────────────────
         ProtocolCounts p = edge.protocols;
