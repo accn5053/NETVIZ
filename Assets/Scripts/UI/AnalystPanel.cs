@@ -6,7 +6,10 @@ using UnityEngine.UI;
 public class AnalystPanel : MonoBehaviour
 {
     public GameObject panelRoot;
+    public TextMeshProUGUI titleText;
     public TextMeshProUGUI panelText;
+    public Transform alertsContainer;
+    public GameObject alertButtonPrefab;
     public Button closeButton;
     // ConversationsOverlay removed
     public NodeHighlighter nodeHighlighter;
@@ -38,37 +41,54 @@ public class AnalystPanel : MonoBehaviour
     {
         _currentNode = node.Data;
         panelRoot.SetActive(true);
+        titleText.text = BuildTitleText(_currentNode);
+        BuildAlertButtons(_currentNode);
         panelText.text = BuildPanelText(_currentNode);
+
+        Canvas.ForceUpdateCanvases();
+        LayoutRebuilder.ForceRebuildLayoutImmediate(panelRoot.GetComponent<RectTransform>());
     }
 
     private void Hide()
     {
         panelRoot.SetActive(false);
     }
+    private string BuildTitleText(ProcessedNode data)
+    {
+        return data.ip;
+    }
 
+    private void BuildAlertButtons(ProcessedNode data)
+    {
+        // Snapshot children first — mutating the container while iterating over it is unsafe
+        List<Transform> oldChildren = new List<Transform>();
+        foreach (Transform child in alertsContainer)
+            oldChildren.Add(child);
+
+        foreach (Transform child in oldChildren)
+        {
+            child.SetParent(null);
+            Destroy(child.gameObject);
+        }
+
+        if (data.alerts == null || data.alerts.Count == 0)
+            return;
+
+        foreach (AlertData alert in data.alerts)
+        {
+            GameObject btnObj = Instantiate(alertButtonPrefab, alertsContainer);
+            TextMeshProUGUI btnText = btnObj.GetComponentInChildren<TextMeshProUGUI>();
+            string color = GetAlertColor(alert.type);
+
+            btnText.text = $"<color={color}><b>{alert.type}</b></color>\n" +
+                            $"Target: {alert.target}\n" +
+                            $"{alert.details}";
+        }
+    }
     private string BuildPanelText(ProcessedNode data)
     {
         System.Text.StringBuilder sb = new System.Text.StringBuilder();
 
-        sb.AppendLine($"<size=15><b>{data.ip}</b></size>\n");
-
-        // ── Alerts ─────────────────────────────────────────────────────
-        if (data.alerts == null || data.alerts.Count == 0)
-        {
-            sb.AppendLine("<color=#00FF00>No alerts detected</color>\n");
-        }
-        else
-        {
-            sb.AppendLine($"<b>Alerts ({data.alerts.Count})</b>");
-            foreach (AlertData alert in data.alerts)
-            {
-                string color = GetAlertColor(alert.type);
-                sb.AppendLine($"\n<color={color}><b>{alert.type}</b></color>");
-                sb.AppendLine($"  Target: {alert.target}");
-                sb.AppendLine($"  {alert.details}");
-            }
-            sb.AppendLine();
-        }
 
         // ── Activity ───────────────────────────────────────────────────
         sb.AppendLine("<b>Traffic</b>");
