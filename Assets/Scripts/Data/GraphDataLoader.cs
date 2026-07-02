@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
 using SimpleFileBrowser;
+using Newtonsoft.Json.Linq;
 
 public class ProcessedNode
 {
@@ -78,7 +79,7 @@ public class GraphDataLoader : MonoBehaviour
         TopologyData topology = LoadJson<TopologyData>(
             Path.Combine(folderPath, "topology.json"));
 
-        List<AlertData> alerts = LoadJsonArray<AlertData>(
+        List<AlertData> alerts = LoadAlertsWithNewtonsoft(
             Path.Combine(folderPath, "alerts.json"));
 
         if (topology == null || alerts == null)
@@ -205,6 +206,102 @@ public class GraphDataLoader : MonoBehaviour
         string wrapped = "{\"items\":" + json + "}";
         JsonWrapper<T> wrapper = JsonUtility.FromJson<JsonWrapper<T>>(wrapped);
         return wrapper?.items;
+    }
+
+    private List<AlertData> LoadAlertsWithNewtonsoft(string path)
+    {
+        if (!File.Exists(path))
+        {
+            Debug.LogError($"GraphDataLoader: file not found: {path}");
+            return null;
+        }
+
+        string json = File.ReadAllText(path);
+        JArray rawAlerts = JArray.Parse(json);
+
+        List<AlertData> alerts = new List<AlertData>();
+
+        foreach (JToken rawAlert in rawAlerts)
+        {
+            AlertData alert = new AlertData
+            {
+                type = (string)rawAlert["type"],
+                source = (string)rawAlert["source"],
+                target = (string)rawAlert["target"],
+                details = (string)rawAlert["details"]
+            };
+
+            JToken rawReplay = rawAlert["replay"];
+            if (rawReplay != null)
+                alert.replay = ParseReplay(rawReplay, alert.type);
+
+            alerts.Add(alert);
+        }
+
+        return alerts;
+    }
+
+    private ReplayData ParseReplay(JToken rawReplay, string alertType)
+    {
+        ReplayData replay = new ReplayData
+        {
+            detector_type = (string)rawReplay["detector_type"],
+            evidence_capped = (bool)rawReplay["evidence_capped"],
+            evidence_cap = (int)rawReplay["evidence_cap"],
+            frames = new List<ReplayFrame>()
+        };
+
+        JToken thresholds = rawReplay["thresholds"];
+        JToken finalValues = rawReplay["final_values"];
+
+        if (alertType == "Port Scan")
+        {
+            replay.portScanThresholds = thresholds?.ToObject<PortScanThresholds>();
+            replay.portScanFinalValues = finalValues?.ToObject<PortScanFinalValues>();
+        }
+        else if (alertType == "SYN Flood")
+        {
+            replay.synFloodThresholds = thresholds?.ToObject<SynFloodThresholds>();
+            replay.synFloodFinalValues = finalValues?.ToObject<SynFloodFinalValues>();
+        }
+        else if (alertType == "DNS Tunneling")
+        {
+            replay.dnsTunnelingThresholds = thresholds?.ToObject<DnsTunnelingThresholds>();
+            replay.dnsTunnelingFinalValues = finalValues?.ToObject<DnsTunnelingFinalValues>();
+        }
+
+        foreach (JToken rawFrame in (JArray)rawReplay["frames"])
+        {
+            ReplayFrame frame = new ReplayFrame
+            {
+                time_bucket = (int)rawFrame["time_bucket"],
+                gate_passed = (bool)rawFrame["gate_passed"],
+                edges = rawFrame["edges"]?.ToObject<List<ReplayEdge>>()
+            };
+
+            JToken rawEvents = rawFrame["events"];
+            JToken rawRunningState = rawFrame["running_state"];
+
+            if (alertType == "Port Scan")
+            {
+                frame.portScanEvents = rawEvents?.ToObject<List<PortScanEvidenceEvent>>();
+                frame.portScanRunningState = rawRunningState?.ToObject<PortScanRunningState>();
+            }
+            else if (alertType == "SYN Flood")
+            {
+                frame.synFloodEvents = rawEvents?.ToObject<List<SynFloodEvidenceEvent>>();
+                frame.synFloodRunningState = rawRunningState?.ToObject<SynFloodRunningState>();
+            }
+            else if (alertType == "DNS Tunneling")
+            {
+                frame.dnsTunnelingEvents = rawEvents?.ToObject<List<DnsTunnelingEvidenceEvent>>();
+                frame.dnsTunnelingRunningState = rawRunningState?.ToObject<DnsTunnelingRunningState>();
+            }
+
+            replay.frames.Add(frame);
+        }
+
+        return replay;
     }
 
     [System.Serializable]

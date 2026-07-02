@@ -5,4 +5,5 @@ public class AlertData
     public string source;
     public string target;
     public string details;
+    public ReplayData replay;
 }

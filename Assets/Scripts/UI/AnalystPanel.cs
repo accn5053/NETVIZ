@@ -13,6 +13,7 @@ public class AnalystPanel : MonoBehaviour
     public Button closeButton;
     // ConversationsOverlay removed
     public NodeHighlighter nodeHighlighter;
+    public ReplayOverlayController replayOverlayController;
 
     void Awake()
     {
@@ -83,6 +84,11 @@ public class AnalystPanel : MonoBehaviour
             btnText.text = $"<color={color}><b>{alert.type}</b></color>\n" +
                             $"Target: {alert.target}\n" +
                             $"{alert.details}";
+            Button btn = btnObj.GetComponent<Button>();
+            if (btn != null && replayOverlayController != null)
+            {
+                btn.onClick.AddListener(() => replayOverlayController.Open());
+            }
         }
     }
     private string BuildPanelText(ProcessedNode data)
